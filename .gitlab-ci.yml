@@ -29,10 +29,15 @@ deploy:
   image: ubuntu:latest
   stage: deploy
   script:
-    - apt -qq update && apt upgrade -qqy openssh-client
+    - apt -qq update && apt upgrade -qqy openssh-client rsync
     - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - echo "${SSH_PRIVATE_KEY}" | ssh-add -
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-    - scp ./build/* deploy@45.11.24.226:~/realworld
+    - echo "${SSH_KNOWN_HOSTS}" >> ~/.ssh/known_hosts
+    - rsync -a --progress
+      --human-readable --delete
+      --exclude-from '.gitignore'
+      --exclude .gitignore
+      --exclude .git
+      ./build/* deploy@$REMOTE_HOST:~/realworld/public
