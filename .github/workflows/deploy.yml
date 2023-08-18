@@ -16,7 +16,7 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm install
-      - name: Buils dependencies
+      - name: Build dependencies
         env:
           REACT_APP_BACKEND_URL: ${{ secrets.API_URL }}
         run: npm run build
