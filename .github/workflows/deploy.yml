@@ -1,0 +1,50 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.17.0
+          cache: "npm"
+      - name: Install dependencies
+        run: npm install
+      - name: Buils dependencies
+        env:
+          REACT_APP_BACKEND_URL: ${{ secrets.API_URL }}
+        run: npm run build
+      - name: Archieve build
+        uses: actions/upload-artifacts@v2
+        with:
+          name: build
+          path: build
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download build artifact"
+        uses: "actions/download-artifacts@v2"
+        with:
+          name: build
+          path: build
+      - name: "Copy build to server"
+        uses: "appleboy/scp-action@v0.1.1"
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          rm: true
+          source: build/*
+          target: "~/realworld/public"
