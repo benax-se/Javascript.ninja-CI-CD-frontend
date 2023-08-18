@@ -48,6 +48,6 @@ jobs:
         if: success()
         uses: mshick/add-pr-comment@v2
         env:
-          REVIEW_APP_URL: http://${{ github.head_ref }}.${{ secrets.API_URL }}/
+          REVIEW_APP_URL: http://${{ github.head_ref }}.${{ secrets.APP_HOST }}/
         with:
-          message: Created new review app at ${{ env.APP_HOST }}
+          message: Created new review app at ${{ env.REVIEW_APP_URL }}
