@@ -4,6 +4,7 @@ on:
   pull_request:
 
 jobs:
+  if: "!contains(github.event.pull_request.title, 'SKIP REVIEW')"
   build:
     runs-on: ubuntu-latest
     steps:
