@@ -21,7 +21,7 @@ jobs:
           REACT_APP_BACKEND_URL: ${{ secrets.API_URL }}
         run: npm run build
       - name: Archieve build
-        uses: actions/upload-artifacts@v2
+        uses: actions/upload-artifact@v2
         with:
           name: build
           path: build
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Download build artifact"
-        uses: "actions/download-artifacts@v2"
+        uses: "actions/download-artifact@v2"
         with:
           name: build
           path: build
