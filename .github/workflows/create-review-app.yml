@@ -1,0 +1,54 @@
+name: Create review app
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.17.0
+          cache: "npm"
+      - name: Install dependencies
+        run: npm install
+      - name: Build dependencies
+        env:
+          REACT_APP_BACKEND_URL: http://${{ github.head_ref }}.${{ secrets.API_URL }}
+        run: npm run build
+      - name: Archieve build
+        uses: actions/upload-artifact@v2
+        with:
+          name: build
+          path: build
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download build artifact"
+        uses: "actions/download-artifact@v2"
+        with:
+          name: build
+          path: build
+      - name: Setup SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: "Copy build to server"
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh $SSH_USER@SSH_HOST "mkdir -p ~/app/${{ github.head_ref }}/public"
+          rsync -ravz build/* $SSH_USER@SSH_HOST:~/app/${{ github.head_ref }}/public/
+      - name: Post review app URL
+        if: success()
+        uses: mshick/add-pr-comment@v1
+        env:
+          REVIEW_APP_URL: http://${{ github.head_ref }}.${{ secrets.API_URL }}/
+        with:
+          message: Created new review app at ${{ env.APP_HOST }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
