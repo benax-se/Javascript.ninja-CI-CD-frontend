@@ -43,3 +43,4 @@ jobs:
           rm: true
           source: build/*
           target: "~/realworld/public"
+          strip_components: 1
