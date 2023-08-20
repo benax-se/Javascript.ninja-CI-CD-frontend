@@ -1,0 +1,53 @@
+name: Publish review app
+
+on:
+  workflow_dispatch:
+    inputs:
+      refName:
+        description: "Ref name"
+        required: true
+      dst:
+        description: "Where to deploy"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.refName }}
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.17.0
+      - run: npm install
+      - name: Build
+        run: npm run build
+        env:
+          REACT_APP_BACKEND_URL: http://${{ github.event.inputs.dst }}.${{ secrets.API_URL }}
+      - name: Archive build
+        uses: actions/upload-artifact@v2
+        with:
+          name: build
+          path: build
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download a single artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: build
+          path: build
+      - name: Setup SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: Copy build to the server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh $SSH_USER@$SSH_HOST "mkdir -p ~/app/${{ github.event.inputs.dst }}/public"
+          rsync -ravz build/* $SSH_USER@$SSH_HOST:~/app/${{ github.event.inputs.dst }}/public/
