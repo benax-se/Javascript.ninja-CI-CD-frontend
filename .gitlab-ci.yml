@@ -1,43 +1,91 @@
 stages:
+  - test
   - build
   - deploy
+  - review
 
-cache:
-  key:
-    files:
-      - package-lock.json
-  paths:
-    - .npm/
-
-.default-cache: &default-cache
+default:
+  image: node:14.17.0-alpine
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
   before_script:
-    - npm ci --cache .npm --prefer-online
+    - npm ci --cache .npm --prefer-offline
+
+.setup_ssh:
+  before_script:
+    - "which ssh-agent || (apk add --update openssh curl bash git)"
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+lint:
+  stage: test
+  script:
+    - npm run lint
 
 build:
-  image: node:14.17.0-alpine
   stage: build
-  extends:
-    - .default-cache
+  variables:
+    REACT_APP_BACKEND_URL: http://$CI_COMMIT_REF_SLUG.$APP_HOST/api
   script:
-    - npm install
     - npm run build
   artifacts:
     paths:
-      - build/
+      - build
+    expire_in: 1 week
 
 deploy:
-  image: ubuntu:latest
+  extends:
+    - .setup_ssh
   stage: deploy
+  variables:
+    DEPLOY_DST: "/home/deploy/app/$CI_COMMIT_REF_SLUG/current/public/"
   script:
-    - apt -qq update && apt upgrade -qqy openssh-client rsync
-    - eval $(ssh-agent -s)
-    - echo "${SSH_PRIVATE_KEY}" | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo "${SSH_KNOWN_HOSTS}" >> ~/.ssh/known_hosts
-    - rsync -a --progress
-      --human-readable --delete
-      --exclude-from '.gitignore'
-      --exclude .gitignore
-      --exclude .git
-      ./build/* deploy@$REMOTE_HOST:~/realworld/public
+    - ssh $SSH_USER@$SSH_HOST "mkdir -p $DEPLOY_DST"
+    - scp build/* $SSH_USER@$SSH_HOST:$DEPLOY_DST
+
+start_review:
+  stage: review
+  extends:
+    - .setup_ssh
+  variables:
+    BRANCH_EXISTS_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches/$CI_COMMIT_REF_NAME"
+    CREATE_BRANCH_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches?branch=$CI_COMMIT_REF_NAME&ref=$CI_DEFAULT_BRANCH"
+    TRIGGER_PIPELINE_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/pipeline?ref=$CI_COMMIT_REF_NAME"
+  script:
+    - 'status_code=$(curl -I --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$BRANCH_EXISTS_URL")'
+    - '[[ "$status_code" -ne 204 ]] && status_code=$(curl -X POST --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$CREATE_BRANCH_URL")'
+    - '[[ "$status_code" -ne 400 ]] && echo "Branch already exists" && exit 0'
+    - 'curl -X POST --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$TRIGGER_PIPELINE_URL"'
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url: http://$CI_COMMIT_REF_SLUG.$APP_HOST/
+    on_stop: stop_review
+  rules:
+    - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+stop_review:
+  stage: review
+  extends:
+    - .setup_ssh
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    action: stop
+  variables:
+    DEPLOY_DST: "/home/deploy/app/$CI_COMMIT_REF_SLUG/current/public"
+  script:
+    - |
+      ssh $SSH_USER@$SSH_HOST "rm -rf $DEPLOY_DST"
+  rules:
+    - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
