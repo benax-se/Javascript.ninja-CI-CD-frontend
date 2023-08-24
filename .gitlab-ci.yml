@@ -43,11 +43,6 @@ deploy:
   script:
     - ssh $SSH_USER@$SSH_HOST "mkdir -p $DEPLOY_DST"
     - scp -r build/* $SSH_USER@$SSH_HOST:$DEPLOY_DST
-  environment:
-    name: production
-    url: http://$CI_COMMIT_REF_SLUG.$APP_HOST/
-  rules:
-    - if: $CI_COMMIT_BRANCH == 'main'
 
 start_review:
   stage: review
