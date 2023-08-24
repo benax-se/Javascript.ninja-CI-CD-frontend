@@ -55,8 +55,6 @@ start_review:
     TRIGGER_PIPELINE_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/pipeline?ref=$CI_COMMIT_REF_NAME"
   script:
     - 'status_code=$(curl -I --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$BRANCH_EXISTS_URL")'
-    - ssh $SSH_USER@$SSH_HOST "mkdir -p $DEPLOY_DST"
-    - scp -r build/* $SSH_USER@$SSH_HOST:$DEPLOY_DST
     - '[[ "$status_code" -ne 204 ]] && status_code=$(curl -X POST --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$CREATE_BRANCH_URL")'
     - '[[ "$status_code" -ne 400 ]] && echo "Branch already exists" && exit 0'
     - 'curl -X POST --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$TRIGGER_PIPELINE_URL"'
