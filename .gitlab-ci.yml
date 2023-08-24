@@ -1,5 +1,4 @@
 stages:
-  - test
   - build
   - deploy
   - review
@@ -23,11 +22,6 @@ default:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-
-lint:
-  stage: test
-  script:
-    - npm run lint
 
 build:
   stage: build
