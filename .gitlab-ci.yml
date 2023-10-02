@@ -25,13 +25,12 @@ build:
   stage: build
   extends:
     - .docker
-  variables:
-    REACT_APP_BACKEND_URL: http://$CI_COMMIT_REF_SLUG.$APP_HOST/api
   script:
     - docker pull $CI_REGISTRY_IMAGE:latest || true
     - >
       docker build
       --pull
+      --build-arg BACKEND_URL="http://$CI_COMMIT_REF_SLUG.$APP_HOST/api"
       --cache-from $CI_REGISTRY_IMAGE:latest
       --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
       --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
