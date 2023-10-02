@@ -64,6 +64,7 @@ deploy:
   script:
     - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
     - mkdir -p ~/deploy/$CI_COMMIT_REF_SLUG
+    - cat ~/docker-compose.yml
     - cp ~/docker-compose.yml ~/deploy/$CI_COMMIT_REF_SLUG
     - docker stack deploy $CI_COMMIT_REF_SLUG -c /home/gitlab-runner/deploy/$CI_COMMIT_REF_SLUG/docker-compose.yml --with-registry-auth
   rules:
