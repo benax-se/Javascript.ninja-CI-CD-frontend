@@ -2,6 +2,7 @@ stages:
   - build
   - push
   - deploy
+  - review
 
 .node:
   image: node:14.17.0-alpine
@@ -37,7 +38,7 @@ build:
       .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-   rules:
+  rules:
     - if: $CI_COMMIT_BRANCH == 'main'
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
@@ -74,12 +75,11 @@ deploy:
   rules:
     - if: $CI_COMMIT_BRANCH == 'main'
 
-
 create_review_app:
   tags:
     - remote
   stage: review
-  variables: 
+  variables:
     GIT_STRATEGY: none
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -93,7 +93,7 @@ create_review_app:
     url: http://$CI_COMMIT_REF_SLUG.$APP_HOST/
     on_stop: stop_review
   rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/'
+    - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
@@ -101,7 +101,7 @@ stop_review:
   tags:
     - remote
   stage: review
-  variables: 
+  variables:
     GIT_STRATEGY: none
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -112,7 +112,7 @@ stop_review:
     name: review/$CI_COMMIT_REF_NAME
     action: stop
   rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/'
+    - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
