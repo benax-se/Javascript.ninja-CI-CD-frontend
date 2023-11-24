@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app-__CI_ENVIRONMENT_SLUG__
+  namespace: ci-cd-workshop
   labels:
     app: ci-cd-workshop
     ref: __CI_ENVIRONMENT_SLUG__
