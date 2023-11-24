@@ -12,14 +12,16 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: \"false\"
 spec:
   rules:
-    - host: __CI_ENVIRONMENT_SLUG__-192-46-238-237.nip.io
+    - host: __CI_ENVIRONMENT_SLUG__-158-160-134-135.nip.io
       http:
         paths:
           - path: /
             backend:
-              serviceName: app-__CI_ENVIRONMENT_SLUG__
-              servicePort: 80
+              service:
+                name: app-__CI_ENVIRONMENT_SLUG__
+                port: 80
           - path: /api
             backend:
-              serviceName: node-__CI_ENVIRONMENT_SLUG__
-              servicePort: 3000
+              service:
+                name: node-__CI_ENVIRONMENT_SLUG__
+                port: 3000
