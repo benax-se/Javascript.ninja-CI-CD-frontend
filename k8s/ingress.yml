@@ -19,9 +19,11 @@ spec:
             backend:
               service:
                 name: app-__CI_ENVIRONMENT_SLUG__
-                port: 80
+                port:
+                  number: 80
           - path: /api
             backend:
               service:
                 name: node-__CI_ENVIRONMENT_SLUG__
-                port: 3000
+                port:
+                  number: 3000
