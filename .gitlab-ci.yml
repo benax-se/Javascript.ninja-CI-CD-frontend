@@ -63,6 +63,8 @@ deploy:
   environment:
     name: production
     url: http://$CI_COMMIT_REF_SLUG.$APP_HOST/
+    kubernetes:
+      namespace: ci-cd-workshop
   rules:
     - if: $CI_COMMIT_BRANCH == 'main'
     - sed -i "s~__CI_REGISTRY_IMAGE__~${CI_REGISTRY_IMAGE}~" deployment.yml
@@ -70,8 +72,10 @@ deploy:
     - sed -i "s~__VERSION__~${CI_COMMIT_REF_SLUG}~" deployment.yml ingress.yml service.yml
   scripts:
     - cd k8s/
-    -
-
+    - kubectl apply -f deployment.yml
+    - kubectl apply -f service.yml || true
+    - kubectl apply -f ingress.yml
+    - kubectl rollout status -f deployment.yml
 create_review_app:
   tags:
     - remote
