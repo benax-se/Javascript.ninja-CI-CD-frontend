@@ -68,7 +68,6 @@ deploy:
     - sed -i "s/__VERSION__/${CI_COMMIT_REF_SLUG}/" deployment.yml
     - kubectl config get-contexts
     - kubectl config use-context benaxscope/javascript.ninja-ci-cd-frontend:yacloudlearnagent
-    - kubectl cluster-info
     - kubectl apply -f deployment.yml
     - kubectl apply -f service.yml || true
     - kubectl apply -f ingress.yml
