@@ -59,8 +59,8 @@ push_latest:
 deploy:
   stage: deploy
   image:
-    name: lachlanevenson/k8s-kubectl:v1.21.1
-    entrypoint: ["/bin/sh", "-c"]
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
   script:
     - cd k8s/
     - sed -i "s~__CI_REGISTRY_IMAGE__~${CI_REGISTRY_IMAGE}~" deployment.yml
@@ -80,8 +80,8 @@ deploy:
 create_review_app:
   stage: review
   image:
-    name: lachlanevenson/k8s-kubectl:v1.21.1
-    entrypoint: ["/bin/sh", "-c"]
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
   variables:
     BRANCH_EXISTS_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches/$CI_COMMIT_REF_NAME"
     CREATE_BRANCH_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches?branch=$CI_COMMIT_REF_NAME&ref=$CI_DEFAULT_BRANCH"
@@ -123,8 +123,8 @@ create_review_backend_app:
 stop_review:
   stage: review
   image:
-    name: lachlanevenson/k8s-kubectl:v1.21.1
-    entrypoint: ["/bin/sh", "-c"]
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
   environment:
     name: review/$CI_COMMIT_REF_NAME
     action: stop
