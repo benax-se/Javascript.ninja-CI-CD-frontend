@@ -34,7 +34,7 @@ build:
       docker build
       --pull
       --cache-from $CI_REGISTRY_IMAGE:latest
-      --build-arg BACKEND_URL="http://$CI_COMMIT_REF_SLUG.$APP_HOST/api"
+      --build-arg BACKEND_URL="http://$CI_COMMIT_REF_SLUG-$APP_HOST/api"
       --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
       --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
       .
@@ -74,7 +74,7 @@ deploy:
     - kubectl rollout status -f deployment.yml
   environment:
     name: production
-    url: http://$CI_COMMIT_REF_SLUG.$APP_HOST/
+    url: http://production-$APP_HOST/
     kubernetes:
       namespace: ci-cd-workshop
   rules:
@@ -102,7 +102,7 @@ create_review_app:
     - '[[ "$status_code" -ne 400 ]] && echo "Branch already exists" && exit 0'
   environment:
     name: review/$CI_COMMIT_REF_NAME
-    url: http://$CI_COMMIT_REF_SLUG.$APP_HOST/
+    url: http://$CI_COMMIT_REF_SLUG-$APP_HOST/
     on_stop: stop_review
     kubernetes:
       namespace: ci-cd-workshop
