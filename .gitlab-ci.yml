@@ -66,6 +66,8 @@ deploy:
     - sed -i "s~__CI_REGISTRY_IMAGE__~${CI_REGISTRY_IMAGE}~" deployment.yml
     - sed -i "s/__CI_ENVIRONMENT_SLUG__/${CI_ENVIRONMENT_SLUG}/" deployment.yml ingress.yml service.yml
     - sed -i "s/__VERSION__/${CI_COMMIT_REF_SLUG}/" deployment.yml
+    - export KUBE_CONTEXT="<user>/<repo>:<agent-name>"
+    - kubectl config --kubeconfig=${KUBE_CONFIG} use-context <user>/<repo>:<agent-name>
     - kubectl cluster-info
     - kubectl config view
     - kubectl apply -f deployment.yml
