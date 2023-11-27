@@ -1,3 +1,4 @@
+---
 stages:
   - build
   - push
@@ -100,7 +101,6 @@ create_review_app:
     BRANCH_EXISTS_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches/$CI_COMMIT_REF_NAME"
     CREATE_BRANCH_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches?branch=$CI_COMMIT_REF_NAME&ref=$CI_DEFAULT_BRANCH"
   script:
-    - apk add --update curl
     - cd k8s/
     - sed -i "s~__CI_REGISTRY_IMAGE__~${CI_REGISTRY_IMAGE}~" deployment.yml
     - sed -i "s/__CI_ENVIRONMENT_SLUG__/${CI_ENVIRONMENT_SLUG}/" deployment.yml ingress.yml service.yml
@@ -109,12 +109,9 @@ create_review_app:
     - kubectl apply -f service.yml || true
     - kubectl apply -f ingress.yml
     - kubectl rollout status -f deployment.yml
-    - 'status_code=$(curl -I --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$BRANCH_EXISTS_URL")'
-    - '[[ "$status_code" -ne 204 ]] && status_code=$(curl -X POST --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$CREATE_BRANCH_URL")'
-    - '[[ "$status_code" -ne 400 ]] && echo "Branch already exists" && exit 0'
   environment:
     name: review/$CI_COMMIT_REF_NAME
-    url: http://$CI_COMMIT_REF_SLUG-$APP_HOST/
+    url: http://$CI_ENVIRONMENT_SLUG-$APP_HOST/
     on_stop: stop_review
     kubernetes:
       namespace: ci-cd-workshop
@@ -123,18 +120,6 @@ create_review_app:
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
-
-create_review_backend_app:
-  stage: post-review
-  needs: ["create_review_app"]
-  trigger:
-    project: "ci-cd-workshop-benax/javascript.ninja-ci-cd-backend"
-    branch: $CI_COMMIT_REF_NAME
-    strategy: depend
-  rules:
-    - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 stop_review:
   stage: review
@@ -147,8 +132,8 @@ stop_review:
     name: review/$CI_COMMIT_REF_NAME
     action: stop
   script:
-    - kubectl delete ing -l ref=${CI_ENVIRONMENT_SLUG}
-    - kubectl delete all -l ref=${CI_ENVIRONMENT_SLUG}
+    - kubectl delete ing -n=ci-cd-workshop -l ref=${CI_ENVIRONMENT_SLUG}
+    - kubectl delete all -n=ci-cd-workshop -l ref=${CI_ENVIRONMENT_SLUG}
   rules:
     - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
       when: never
