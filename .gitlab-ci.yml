@@ -1,4 +1,3 @@
----
 stages:
   - build
   - push
@@ -31,6 +30,7 @@ stages:
 .k8s_set_project_context:
   before_script:
     - kubectl config use-context ci-cd-workshop-benax/k8s:ycloudlearn
+
 build:
   stage: build
   extends:
@@ -128,7 +128,7 @@ create_review_backend_app:
   stage: post-review
   needs: ["create_review_app"]
   trigger:
-    project: "ci-cd-workshop1/express-bookshelf-realworld-example-app"
+    project: "ci-cd-workshop-benax/javascript.ninja-ci-cd-backend"
     branch: $CI_COMMIT_REF_NAME
     strategy: depend
   rules:
