@@ -5,6 +5,7 @@ stages:
   - deploy
   - review
   - post-review
+
 .node:
   image: node:14.17.0-alpine
   cache:
@@ -15,15 +16,23 @@ stages:
       - .npm/
   before_script:
     - npm ci --cache .npm --prefer-offline
+
 .docker:
   image: docker:20
   services:
     - docker:dind
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
 .docker_auth:
   before_script:
     - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
+
+.k8s_set_project_context:
+  before_script:
+    - kubectl config get-contexts
+    - kubectl config use-context ci-cd-workshop-benax/javascript.ninja-ci-cd-frontend:ycloudlearn
+
 build:
   stage: build
   extends:
@@ -44,6 +53,7 @@ build:
     - if: $CI_COMMIT_BRANCH == 'main'
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
+
 push_latest:
   stage: push
   extends:
@@ -56,11 +66,14 @@ push_latest:
     - docker push $CI_REGISTRY_IMAGE:latest
   only:
     - main
+
 deploy:
   stage: deploy
   image:
     name: bitnami/kubectl:latest
     entrypoint: [""]
+  extends:
+    - .k8s_set_project_context
   script:
     - cd k8s/
     - sed -i "s~__CI_REGISTRY_IMAGE__~${CI_REGISTRY_IMAGE}~" deployment.yml
@@ -79,11 +92,14 @@ deploy:
       namespace: ci-cd-workshop
   rules:
     - if: $CI_COMMIT_BRANCH == 'main'
+
 create_review_app:
   stage: review
   image:
     name: bitnami/kubectl:latest
     entrypoint: [""]
+  extends:
+    - .k8s_set_project_context
   variables:
     BRANCH_EXISTS_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches/$CI_COMMIT_REF_NAME"
     CREATE_BRANCH_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches?branch=$CI_COMMIT_REF_NAME&ref=$CI_DEFAULT_BRANCH"
@@ -111,6 +127,7 @@ create_review_app:
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
+
 create_review_backend_app:
   stage: post-review
   needs: ["create_review_app"]
@@ -122,11 +139,14 @@ create_review_backend_app:
     - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
 stop_review:
   stage: review
   image:
     name: bitnami/kubectl:latest
     entrypoint: [""]
+  extends:
+    - .k8s_set_project_context
   environment:
     name: review/$CI_COMMIT_REF_NAME
     action: stop
