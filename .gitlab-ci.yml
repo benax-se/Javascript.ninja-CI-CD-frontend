@@ -30,9 +30,7 @@ stages:
 
 .k8s_set_project_context:
   before_script:
-    - kubectl config get-contexts
-    - kubectl config use-context ci-cd-workshop-benax/javascript.ninja-ci-cd-frontend:ycloudlearn
-
+    - kubectl config use-context ci-cd-workshop-benax/k8s:ycloudlearn
 build:
   stage: build
   extends:
