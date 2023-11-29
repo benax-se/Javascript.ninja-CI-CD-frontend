@@ -106,7 +106,7 @@ deploy:
 create_review_app:
   stage: review
   image:
-    name: alpine/helm:3.5.3
+    name: alpine/k8s:1.28.4
     entrypoint: ["/bin/sh", "-c"]
   variables:
     BRANCH_EXISTS_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches/$CI_COMMIT_REF_NAME"
@@ -160,7 +160,7 @@ create_review_backend_app:
 stop_review:
   stage: review
   image:
-    name: alpine/helm:3.5.3
+    name: alpine/k8s:1.28.4
     entrypoint: ["/bin/sh", "-c"]
   extends:
     - .k8s_set_project_context
