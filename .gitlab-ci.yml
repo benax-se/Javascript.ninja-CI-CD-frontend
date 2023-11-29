@@ -75,7 +75,7 @@ push_latest:
 deploy:
   stage: deploy
   image:
-    name: alpine/k8s
+    name: alpine/k8s:1.28.4
     entrypoint: ["/bin/sh", "-c"]
   extends:
     - .k8s_set_project_context
