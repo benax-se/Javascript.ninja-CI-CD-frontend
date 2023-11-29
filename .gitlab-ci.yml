@@ -6,6 +6,12 @@ stages:
   - review
   - post-review
 
+variables:
+  REVIEW_BASE_DOMAIN: "158-160-134-135.nip.io"
+  DOMAIN: "158-160-134-135.nip.io"
+  LIVE_DOMAIN: "production-158-160-134-135.nip.io"
+  KUBE_NAMESPACE: ci-cd-workshop
+
 .node:
   image: node:14.17.0-alpine
   cache:
@@ -28,10 +34,6 @@ stages:
   before_script:
     - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
 
-.k8s_set_project_context:
-  before_script:
-    - kubectl config use-context ci-cd-workshop-benax/k8s:ycloudlearn
-
 build:
   stage: build
   extends:
@@ -42,7 +44,7 @@ build:
       docker build
       --pull
       --cache-from $CI_REGISTRY_IMAGE:latest
-      --build-arg BACKEND_URL="http://$CI_COMMIT_REF_SLUG-$APP_HOST/api"
+      --build-arg BACKEND_URL="http://$CI_COMMIT_REF_SLUG.$APP_HOST/api"
       --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
       --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
       .
@@ -69,71 +71,94 @@ push_latest:
 deploy:
   stage: deploy
   image:
-    name: bitnami/kubectl:latest
-    entrypoint: [""]
-  extends:
-    - .k8s_set_project_context
+    name: alpine/helm:3.5.3
+    entrypoint: ["/bin/sh", "-c"]
   script:
-    - cd k8s/
-    - sed -i "s~__CI_REGISTRY_IMAGE__~${CI_REGISTRY_IMAGE}~" deployment.yml
-    - sed -i "s/__CI_ENVIRONMENT_SLUG__/${CI_ENVIRONMENT_SLUG}/" deployment.yml ingress.yml service.yml
-    - sed -i "s/__VERSION__/${CI_COMMIT_REF_SLUG}/" deployment.yml
-    - kubectl apply -f deployment.yml
-    - kubectl apply -f service.yml || true
-    - kubectl apply -f ingress.yml
-    - kubectl rollout status -f deployment.yml
+    - |
+      helm repo add --username gitlab-ci-token \
+        --password $CI_JOB_TOKEN \
+        ci-cd-workshop \
+        ${CI_API_V4_URL}/projects/52496363/packages/helm/stable
+      helm repo update
+      helm upgrade \
+        --install \
+        --set node.image.tag="$CI_COMMIT_REF_NAME" \
+        --set web.image.tag="$CI_COMMIT_REF_NAME" \
+        --set ciVars.domain="$DOMAIN" \
+        --set ciVars.CI_ENVIRONMENT_SLUG="$CI_ENVIRONMENT_SLUG" \
+        --set ciVars.CI_PROJECT_PATH_SLUG="$CI_PROJECT_PATH_SLUG" \
+        production \
+        ci-cd-workshop/app
   environment:
     name: production
-    url: http://production-$APP_HOST/
+    url: http://$LIVE_DOMAIN/
     kubernetes:
-      namespace: ci-cd-workshop
+      namespace: "$KUBE_NAMESPACE"
   rules:
     - if: $CI_COMMIT_BRANCH == 'main'
 
 create_review_app:
   stage: review
   image:
-    name: bitnami/kubectl:latest
-    entrypoint: [""]
-  extends:
-    - .k8s_set_project_context
+    name: alpine/helm:3.5.3
+    entrypoint: ["/bin/sh", "-c"]
   variables:
     BRANCH_EXISTS_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches/$CI_COMMIT_REF_NAME"
     CREATE_BRANCH_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches?branch=$CI_COMMIT_REF_NAME&ref=$CI_DEFAULT_BRANCH"
   script:
-    - cd k8s/
-    - sed -i "s~__CI_REGISTRY_IMAGE__~${CI_REGISTRY_IMAGE}~" deployment.yml
-    - sed -i "s/__CI_ENVIRONMENT_SLUG__/${CI_ENVIRONMENT_SLUG}/" deployment.yml ingress.yml service.yml
-    - sed -i "s/__VERSION__/${CI_COMMIT_REF_SLUG}/" deployment.yml
-    - kubectl apply -f deployment.yml
-    - kubectl apply -f service.yml || true
-    - kubectl apply -f ingress.yml
-    - kubectl rollout status -f deployment.yml
+    - apk add --update curl
+    - |
+      helm repo add --username gitlab-ci-token \
+        --password $CI_JOB_TOKEN \
+        ci-cd-workshop \
+        ${CI_API_V4_URL}/projects/52496363/packages/helm/stable
+      helm repo update
+      helm upgrade \
+        --install \
+        --set node.image.tag="$CI_COMMIT_REF_NAME" \
+        --set web.image.tag="$CI_COMMIT_REF_NAME" \
+        --set ciVars.domain="$DOMAIN" \
+        --set ciVars.CI_ENVIRONMENT_SLUG="$CI_ENVIRONMENT_SLUG" \
+        --set ciVars.CI_PROJECT_PATH_SLUG="$CI_PROJECT_PATH_SLUG" \
+        $CI_COMMIT_REF_NAME \
+        ci-cd-workshop/app
+    - 'status_code=$(curl -I --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$BRANCH_EXISTS_URL")'
+    - '[[ "$status_code" -ne 204 ]] && status_code=$(curl -X POST --header "PRIVATE-TOKEN: $PAT_TOKEN" --write-out "%{http_code}" --silent --output /dev/null "$CREATE_BRANCH_URL")'
+    - '[[ "$status_code" -ne 400 ]] && echo "Branch already exists" && exit 0'
   environment:
     name: review/$CI_COMMIT_REF_NAME
-    url: http://$CI_ENVIRONMENT_SLUG-$APP_HOST/
+    url: http://$CI_COMMIT_REF_SLUG.$APP_HOST/
     on_stop: stop_review
     kubernetes:
-      namespace: ci-cd-workshop
+      namespace: "$KUBE_NAMESPACE"
   rules:
     - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "pipeline"
 
+create_review_backend_app:
+  stage: post-review
+  needs: ["create_review_app"]
+  trigger:
+    project: "ci-cd-workshop1/express-bookshelf-realworld-example-app"
+    branch: $CI_COMMIT_REF_NAME
+    strategy: depend
+  rules:
+    - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
 stop_review:
   stage: review
   image:
-    name: bitnami/kubectl:latest
-    entrypoint: [""]
-  extends:
-    - .k8s_set_project_context
+    name: alpine/helm:3.5.3
+    entrypoint: ["/bin/sh", "-c"]
   environment:
     name: review/$CI_COMMIT_REF_NAME
     action: stop
   script:
-    - kubectl delete ing -n=ci-cd-workshop -l ref=${CI_ENVIRONMENT_SLUG}
-    - kubectl delete all -n=ci-cd-workshop -l ref=${CI_ENVIRONMENT_SLUG}
+    - helm uninstall $CI_COMMIT_REF_NAME
   rules:
     - if: "$CI_MERGE_REQUEST_TITLE =~ /SKIP REVIEW/"
       when: never
