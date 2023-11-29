@@ -78,7 +78,7 @@ deploy:
     name: alpine/helm:3.5.3
     entrypoint: ["/bin/sh", "-c"]
   extends:
-    - .k8s_set_project_context:
+    - .k8s_set_project_context
   script:
     - |
       helm repo add --username gitlab-ci-token \
@@ -112,7 +112,7 @@ create_review_app:
     BRANCH_EXISTS_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches/$CI_COMMIT_REF_NAME"
     CREATE_BRANCH_URL: "https://gitlab.com/api/v4/projects/$BACKEND_PROJECT_ID/repository/branches?branch=$CI_COMMIT_REF_NAME&ref=$CI_DEFAULT_BRANCH"
   extends:
-    - .k8s_set_project_context:
+    - .k8s_set_project_context
   script:
     - apk add --update curl
     - |
@@ -163,7 +163,7 @@ stop_review:
     name: alpine/helm:3.5.3
     entrypoint: ["/bin/sh", "-c"]
   extends:
-    - .k8s_set_project_context:
+    - .k8s_set_project_context
   environment:
     name: review/$CI_COMMIT_REF_NAME
     action: stop
